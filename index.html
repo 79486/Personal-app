@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#d4a843">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tracker">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>Weekly Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0f;
+    --surface: #1a1a1c;
+    --surface2: #242426;
+    --border: #2e2e32;
+    --accent: #d4a843;
+    --accent2: #7b9e6b;
+    --accent3: #6b8db5;
+    --accent4: #b56b8d;
+    --text: #e8e6e0;
+    --muted: #6b6a66;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh; padding: 16px;
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    max-width: 480px; margin: 0 auto;
+  }
+  header { text-align: center; padding: 24px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  header h1 { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 900; color: var(--accent); letter-spacing: -0.5px; }
+  header p  { font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; text-transform: uppercase; }
+
+  .week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; background: var(--surface); border-radius: var(--radius); padding: 10px 14px; border: 1px solid var(--border); transition: all 0.2s; }
+  .week-nav.hidden { display: none; }
+  .week-nav button { background: none; border: none; color: var(--accent); font-size: 22px; cursor: pointer; padding: 4px 10px; border-radius: 6px; }
+  .week-label { font-size: 12px; color: var(--text); letter-spacing: 0.5px; }
+
+  .tabs { display: flex; gap: 5px; margin-bottom: 20px; }
+  .tab { flex: 1; padding: 10px 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 9px; cursor: pointer; text-align: center; letter-spacing: 0.5px; text-transform: uppercase; transition: all 0.15s; }
+  .tab.active { background: var(--accent); color: #0e0e0f; border-color: var(--accent); font-weight: 600; }
+
+  .day-selector { display: flex; gap: 4px; margin-bottom: 18px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .day-selector::-webkit-scrollbar { display: none; }
+  .day-btn { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: all 0.15s; min-width: 52px; }
+  .day-btn.active { border-color: var(--accent); background: rgba(212,168,67,0.1); }
+  .day-btn.today  { border-color: var(--accent2); }
+  .day-name { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .day-num  { font-size: 16px; color: var(--text); font-weight: 500; margin: 2px 0; }
+  .day-dot  { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
+  .day-dot.has-data { background: var(--accent2); }
+
+  .section-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; padding-left: 2px; }
+
+  .task-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; transition: border-color 0.15s; }
+  .task-card.done { border-color: var(--accent2); }
+  .task-header { display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
+  .checkbox { width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; font-size: 14px; }
+  .task-card.done .checkbox { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .task-info { flex: 1; }
+  .task-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .task-card.done .task-name { color: var(--accent2); text-decoration: line-through; opacity: 0.8; }
+  .task-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .task-tag { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; margin-top: 2px; }
+  .tag-fitness  { background: rgba(123,158,107,0.15); color: var(--accent2); }
+  .tag-language { background: rgba(107,141,181,0.15); color: var(--accent3); }
+  .tag-trading  { background: rgba(212,168,67,0.15);  color: var(--accent);  }
+  .tag-learning { background: rgba(181,107,141,0.15); color: var(--accent4); }
+  .tag-other    { background: rgba(200,200,200,0.08); color: var(--muted);   }
+  .note-area { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+  .note-area textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 11px; padding: 8px 10px; resize: none; outline: none; line-height: 1.5; transition: border-color 0.15s; }
+  .note-area textarea:focus { border-color: var(--accent); }
+  .note-area textarea::placeholder { color: var(--muted); }
+
+  .add-task-btn { width: 100%; padding: 12px; background: transparent; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; letter-spacing: 0.5px; transition: all 0.15s; margin-top: 4px; }
+  .add-task-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* TO-DO */
+  .todo-input-row { display: flex; gap: 8px; margin-bottom: 18px; }
+  .todo-input-row input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; padding: 12px 13px; outline: none; transition: border-color 0.15s; }
+  .todo-input-row input:focus { border-color: var(--accent); }
+  .todo-input-row input::placeholder { color: var(--muted); }
+  .todo-add-btn { background: var(--accent); border: none; border-radius: 10px; color: #0e0e0f; font-size: 24px; font-weight: 700; width: 48px; cursor: pointer; flex-shrink: 0; }
+
+  .todo-section-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin: 14px 0 8px 2px; }
+  .todo-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 14px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 12px; transition: opacity 0.2s; }
+  .todo-item.done-todo { opacity: 0.4; border-color: transparent; }
+  .todo-check { width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; margin-top: 1px; transition: all 0.15s; font-size: 13px; }
+  .todo-item.done-todo .todo-check { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .todo-text-wrap { flex: 1; }
+  .todo-text { font-size: 13px; color: var(--text); line-height: 1.4; cursor: pointer; word-break: break-word; }
+  .todo-item.done-todo .todo-text { text-decoration: line-through; color: var(--muted); }
+  .todo-added { font-size: 9px; color: var(--muted); margin-top: 3px; letter-spacing: 0.5px; }
+  .todo-delete { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; padding: 0 2px; flex-shrink: 0; transition: color 0.15s; line-height: 1.2; }
+  .todo-delete:hover { color: var(--accent4); }
+  .todo-empty { text-align: center; padding: 32px 16px; color: var(--muted); font-size: 12px; line-height: 1.9; }
+  .todo-clear-btn { width: 100%; padding: 10px; background: transparent; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 10px; cursor: pointer; letter-spacing: 0.5px; margin-top: 6px; transition: all 0.15s; }
+  .todo-clear-btn:hover { border-color: var(--accent4); color: var(--accent4); }
+
+  /* REVIEW */
+  .review-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .review-card h3 { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .progress-label { font-size: 11px; color: var(--text); width: 120px; flex-shrink: 0; }
+  .progress-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+  .progress-pct { font-size: 11px; color: var(--muted); width: 32px; text-align: right; flex-shrink: 0; }
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .summary-stat { background: var(--surface2); border-radius: 10px; padding: 12px; text-align: center; }
+  .summary-stat .num { font-family: 'Playfair Display', serif; font-size: 28px; color: var(--accent); line-height: 1; }
+  .summary-stat .lbl { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+  .note-entry { font-size: 11px; color: var(--text); margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); line-height: 1.5; }
+  .note-entry:last-child { border-bottom: none; margin-bottom: 0; }
+  .note-day-label { color: var(--accent); font-size: 10px; margin-bottom: 2px; }
+  .no-notes { font-size: 11px; color: var(--muted); font-style: italic; }
+  .streak-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .streak-dot { width: 28px; height: 28px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--muted); }
+  .streak-dot.done { background: rgba(123,158,107,0.2); border-color: var(--accent2); color: var(--accent2); }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px 16px 0 0; padding: 22px 16px; padding-bottom: max(38px, env(safe-area-inset-bottom)); width: 100%; max-width: 480px; }
+  .modal h3 { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--accent); margin-bottom: 4px; }
+  .modal-sub { font-size: 10px; color: var(--muted); margin-bottom: 16px; letter-spacing: 0.5px; }
+  .field-label { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 14px 0 5px; }
+  .modal input, .modal select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; padding: 10px 12px; outline: none; transition: border-color 0.15s; }
+  .modal input:focus, .modal select:focus { border-color: var(--accent); }
+  select option { background: #1a1a1c; }
+  .modal-btns { display: flex; gap: 8px; margin-top: 20px; }
+  .btn-primary, .btn-cancel { flex: 1; padding: 12px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 12px; cursor: pointer; border: none; font-weight: 500; }
+  .btn-primary { background: var(--accent); color: #0e0e0f; }
+  .btn-cancel  { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  /* Install banner */
+  #installBanner { display: none; background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #installBanner p { font-size: 11px; color: var(--text); line-height: 1.5; }
+  #installBanner button { background: var(--accent); border: none; border-radius: 8px; color: #0e0e0f; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; padding: 8px 12px; cursor: pointer; flex-shrink: 0; }
+  #installBanner.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Weekly Tracker</h1>
+  <p>Your habits. Your progress.</p>
+</header>
+
+<div id="installBanner" class="hidden">
+  <p>Add to your home screen for quick access</p>
+  <button onclick="installApp()">Install</button>
+</div>
+
+<div class="week-nav" id="weekNav">
+  <button onclick="changeWeek(-1)">‹</button>
+  <span class="week-label" id="weekLabel"></span>
+  <button onclick="changeWeek(1)">›</button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('daily',this)">Daily</button>
+  <button class="tab"        onclick="showTab('todo',this)">To-Do</button>
+  <button class="tab"        onclick="showTab('review',this)">Review</button>
+</div>
+
+<div id="dailyView">
+  <div class="day-selector" id="daySelector"></div>
+  <div class="section-label" id="dayTitle"></div>
+  <div id="taskList"></div>
+  <button class="add-task-btn" onclick="openModal()">+ Add recurring habit</button>
+</div>
+
+<div id="todoView" style="display:none">
+  <div class="todo-input-row">
+    <input type="text" id="todoInput" placeholder="e.g. Return shoes, Call dentist…"
+           onkeydown="if(event.key==='Enter')addTodo()" />
+    <button class="todo-add-btn" onclick="addTodo()">+</button>
+  </div>
+  <div id="todoList"></div>
+</div>
+
+<div id="reviewView" style="display:none">
+  <div id="reviewContent"></div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>New Recurring Habit</h3>
+    <p class="modal-sub">Appears in your Daily tracker every day or week.</p>
+    <div class="field-label">Habit name *</div>
+    <input type="text" id="newTaskName" placeholder="e.g. Meditation, Reading, Walk…" />
+    <div class="field-label">Category</div>
+    <select id="newTaskCat">
+      <option value="fitness">💪 Fitness</option>
+      <option value="language">🗣 Language</option>
+      <option value="trading">📈 Trading</option>
+      <option value="learning">🤖 Learning</option>
+      <option value="other">📌 Other</option>
+    </select>
+    <div class="field-label">Description / target (optional)</div>
+    <input type="text" id="newTaskMeta" placeholder="e.g. 20 min · 3× per week" />
+    <div class="field-label">Frequency</div>
+    <select id="newTaskFreq">
+      <option value="daily">Daily — appears every day</option>
+      <option value="weekly">Weekly — tick once per week</option>
+    </select>
+    <div class="modal-btns">
+      <button class="btn-cancel"  onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="addHabit()">Add Habit</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── PWA: Service Worker + Install ────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  document.getElementById('installBanner').classList.remove('hidden');
+});
+
+function installApp() {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  deferredInstall.userChoice.then(() => {
+    deferredInstall = null;
+    document.getElementById('installBanner').classList.add('hidden');
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').classList.add('hidden');
+});
+
+// ── Storage ──────────────────────────────────────────────────────────────────
+const KEY = 'weeklyTracker_v4';
+function load()  { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } }
+function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
+
+// ── Default habits ────────────────────────────────────────────────────────────
+const DEFAULTS = [
+  { id:'gym',     name:'Gym Session',          cat:'fitness',  meta:'30 min · target 5×/week', freq:'daily'  },
+  { id:'french',  name:'French Practice',      cat:'language', meta:'15 min · daily',           freq:'daily'  },
+  { id:'spanish', name:'Spanish Practice',     cat:'language', meta:'30–60 min · weekly goal',  freq:'weekly' },
+  { id:'trading', name:'Trading Session',      cat:'trading',  meta:'1–2 hrs · target 3×/week', freq:'daily'  },
+  { id:'ai',      name:'AI & Claude Learning', cat:'learning', meta:'1 hr · weekly goal',       freq:'weekly' },
+];
+
+function getTasks() {
+  const d = load();
+  return d.customHabits ? [...DEFAULTS, ...d.customHabits] : [...DEFAULTS];
+}
+
+// ── Week nav ──────────────────────────────────────────────────────────────────
+let weekOffset = 0;
+let selDay = (new Date().getDay() + 6) % 7;
+
+function getWeek(off=0) {
+  const now = new Date(), mon = new Date(now);
+  mon.setDate(now.getDate() - ((now.getDay()+6)%7) + off*7);
+  mon.setHours(0,0,0,0);
+  return Array.from({length:7}, (_,i) => { const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+}
+
+function dk(d) { return d.toISOString().slice(0,10); }
+function changeWeek(n) { weekOffset+=n; renderAll(); }
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function showTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['daily','todo','review'].forEach(t => {
+    document.getElementById(t+'View').style.display = t===tab?'block':'none';
+  });
+  document.getElementById('weekNav').classList.toggle('hidden', tab==='todo');
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const DAYS  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const EMOJI = { fitness:'💪', language:'🗣', trading:'📈', learning:'🤖', other:'📌' };
+const CTAG  = { fitness:'tag-fitness', language:'tag-language', trading:'tag-trading', learning:'tag-learning', other:'tag-other' };
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderAll() {
+  const dates = getWeek(weekOffset);
+  const today = dk(new Date());
+  const fmt = d => d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  document.getElementById('weekLabel').textContent = `${fmt(dates[0])} – ${fmt(dates[6])}`;
+
+  const ds = document.getElementById('daySelector');
+  ds.innerHTML = '';
+  const data = load();
+  dates.forEach((date,i) => {
+    const key = dk(date);
+    const hasSome = getTasks().filter(t=>t.freq==='daily').some(t=>data[key]?.[t.id]?.done);
+    const b = document.createElement('div');
+    b.className = 'day-btn'+(i===selDay?' active':'')+(key===today?' today':'');
+    b.innerHTML = `<span class="day-name">${DAYS[i]}</span><span class="day-num">${date.getDate()}</span><span class="day-dot${hasSome?' has-data':''}"></span>`;
+    b.onclick = () => { selDay=i; renderAll(); };
+    ds.appendChild(b);
+  });
+
+  document.getElementById('dayTitle').textContent =
+    dates[selDay].toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+
+  renderTaskList(dates);
+  renderTodo();
+  renderReview(dates);
+}
+
+function renderTaskList(dates) {
+  const key = dk(dates[selDay]);
+  const data = load();
+  const dayData = data[key]||{};
+  const weekKey = 'week_'+dk(dates[0]);
+  const weekData = data[weekKey]||{};
+  const tasks = getTasks();
+  const list = document.getElementById('taskList');
+  list.innerHTML='';
+
+  const daily  = tasks.filter(t=>t.freq==='daily');
+  const weekly = tasks.filter(t=>t.freq==='weekly');
+
+  if (daily.length)  { addSLabel(list,"Today's habits");                        daily.forEach(t=>list.appendChild(mkCard(t,key,dayData))); }
+  if (weekly.length) { addSLabel(list,'Weekly goals — tick once this week','14px'); weekly.forEach(t=>list.appendChild(mkCard(t,weekKey,weekData))); }
+}
+
+function addSLabel(parent, text, mt='') {
+  const el=document.createElement('div'); el.className='section-label'; el.textContent=text; if(mt)el.style.marginTop=mt; parent.appendChild(el);
+}
+
+function mkCard(task, sk, dayData) {
+  const entry=dayData[task.id]||{}; const done=!!entry.done;
+  const card=document.createElement('div'); card.className='task-card'+(done?' done':'');
+  card.innerHTML=`
+    <div class="task-header" onclick="toggleTask('${task.id}','${sk}')">
+      <div class="checkbox">${done?'✓':''}</div>
+      <div class="task-info">
+        <div class="task-name">${EMOJI[task.cat]||'📌'} ${esc(task.name)}</div>
+        <div class="task-meta">${esc(task.meta)}</div>
+        <span class="task-tag ${CTAG[task.cat]||'tag-other'}">${task.cat}</span>
+      </div>
+    </div>
+    <div class="note-area">
+      <textarea rows="2" placeholder="Quick note (optional)…"
+        onchange="saveNote('${task.id}','${sk}',this.value)">${esc(entry.note||'')}</textarea>
+    </div>`;
+  return card;
+}
+
+function toggleTask(id, sk) {
+  const data=load(); if(!data[sk])data[sk]={}; if(!data[sk][id])data[sk][id]={};
+  data[sk][id].done=!data[sk][id].done; save(data); renderAll();
+}
+
+function saveNote(id, sk, note) {
+  const data=load(); if(!data[sk])data[sk]={}; if(!data[sk][id])data[sk][id]={};
+  data[sk][id].note=note; save(data);
+}
+
+// ── To-Do ─────────────────────────────────────────────────────────────────────
+function addTodo() {
+  const inp=document.getElementById('todoInput'); const text=inp.value.trim(); if(!text)return;
+  const data=load(); if(!data.todos)data.todos=[];
+  data.todos.push({id:'td_'+Date.now(),text,done:false,added:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'})});
+  save(data); inp.value=''; renderTodo();
+}
+
+function toggleTodo(id) { const data=load(); const t=(data.todos||[]).find(x=>x.id===id); if(t)t.done=!t.done; save(data); renderTodo(); }
+function deleteTodo(id)  { const data=load(); data.todos=(data.todos||[]).filter(x=>x.id!==id); save(data); renderTodo(); }
+function clearDone()     { const data=load(); data.todos=(data.todos||[]).filter(x=>!x.done); save(data); renderTodo(); }
+
+function renderTodo() {
+  const data=load(); const todos=data.todos||[];
+  const list=document.getElementById('todoList'); list.innerHTML='';
+  const pending=todos.filter(t=>!t.done); const done=todos.filter(t=>t.done);
+  if(!todos.length){
+    list.innerHTML='<div class="todo-empty">Nothing here yet.<br>Type a task above and tap <strong>+</strong><br><span style="font-size:10px;opacity:.6">Tasks carry over until you delete them</span></div>';
+    return;
+  }
+  if(pending.length){ addTLabel(list,`${pending.length} pending`); pending.forEach(t=>list.appendChild(mkTodo(t))); }
+  if(done.length){
+    addTLabel(list,`${done.length} completed`); done.forEach(t=>list.appendChild(mkTodo(t)));
+    const btn=document.createElement('button'); btn.className='todo-clear-btn';
+    btn.textContent='✕  Remove all completed'; btn.onclick=clearDone; list.appendChild(btn);
+  }
+}
+
+function addTLabel(parent,text){ const el=document.createElement('div'); el.className='todo-section-label'; el.textContent=text; parent.appendChild(el); }
+
+function mkTodo(todo) {
+  const div=document.createElement('div'); div.className='todo-item'+(todo.done?' done-todo':'');
+  div.innerHTML=`
+    <div class="todo-check" onclick="toggleTodo('${todo.id}')">${todo.done?'✓':''}</div>
+    <div class="todo-text-wrap">
+      <div class="todo-text" onclick="toggleTodo('${todo.id}')">${esc(todo.text)}</div>
+      <div class="todo-added">Added ${todo.added}</div>
+    </div>
+    <button class="todo-delete" onclick="deleteTodo('${todo.id}')">×</button>`;
+  return div;
+}
+
+// ── Review ────────────────────────────────────────────────────────────────────
+function renderReview(dates) {
+  const data=load(); const tasks=getTasks();
+  const weekKey='week_'+dk(dates[0]); const wd=data[weekKey]||{};
+  const stats={};
+  tasks.forEach(t=>{
+    if(t.freq==='daily'){ let done=0; dates.forEach(d=>{if(data[dk(d)]?.[t.id]?.done)done++;}); stats[t.id]={done,target:t.id==='gym'?5:t.id==='trading'?3:7}; }
+    else { stats[t.id]={done:wd[t.id]?.done?1:0,target:1}; }
+  });
+  let td=0,tp=0; Object.values(stats).forEach(s=>{td+=s.done;tp+=s.target;});
+  const notes=[];
+  tasks.forEach(t=>{
+    if(t.freq==='daily'){dates.forEach((d,i)=>{const n=data[dk(d)]?.[t.id]?.note;if(n&&n.trim())notes.push({day:DAYS[i],task:t.name,note:n});});}
+    else{const n=wd[t.id]?.note;if(n&&n.trim())notes.push({day:'Weekly',task:t.name,note:n});}
+  });
+  const gymDots=dates.map((d,i)=>`<div class="streak-dot${data[dk(d)]?.gym?.done?' done':''}">${DAYS[i].slice(0,2)}</div>`).join('');
+  document.getElementById('reviewContent').innerHTML=`
+    <div class="summary-grid">
+      <div class="summary-stat"><div class="num">${td}</div><div class="lbl">Done</div></div>
+      <div class="summary-stat"><div class="num">${Math.round(td/Math.max(tp,1)*100)}%</div><div class="lbl">Hit rate</div></div>
+    </div>
+    <div class="review-card">
+      <h3>Progress by habit</h3>
+      ${tasks.map(t=>{const s=stats[t.id];const pct=Math.round(s.done/Math.max(s.target,1)*100);const col=pct>=100?'var(--accent2)':pct>=60?'var(--accent)':'var(--accent4)';
+        return `<div class="progress-row"><div class="progress-label">${EMOJI[t.cat]||'📌'} ${esc(t.name.split(' ').slice(0,2).join(' '))}</div><div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${Math.min(pct,100)}%;background:${col}"></div></div><div class="progress-pct">${s.done}/${s.target}</div></div>`;
+      }).join('')}
+    </div>
+    <div class="review-card"><h3>Gym streak this week</h3><div class="streak-row">${gymDots}</div></div>
+    <div class="review-card">
+      <h3>Notes from this week</h3>
+      ${notes.length?notes.map(n=>`<div class="note-entry"><div class="note-day-label">${n.day} · ${esc(n.task)}</div>${esc(n.note)}</div>`).join(''):'<p class="no-notes">No notes yet.</p>'}
+    </div>`;
+}
+
+// ── Habit modal ───────────────────────────────────────────────────────────────
+function openModal()  { document.getElementById('modalOverlay').classList.add('open'); }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+function addHabit() {
+  const name=document.getElementById('newTaskName').value.trim(); if(!name){document.getElementById('newTaskName').focus();return;}
+  const cat=document.getElementById('newTaskCat').value;
+  const meta=document.getElementById('newTaskMeta').value.trim()||'Custom habit';
+  const freq=document.getElementById('newTaskFreq').value;
+  const data=load(); if(!data.customHabits)data.customHabits=[];
+  data.customHabits.push({id:'h_'+Date.now(),name,cat,meta,freq});
+  save(data);
+  document.getElementById('newTaskName').value='';
+  document.getElementById('newTaskMeta').value='';
+  closeModal(); renderAll();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>
