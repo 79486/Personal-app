@@ -124,6 +124,19 @@
   .streak-dot { width: 28px; height: 28px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--muted); }
   .streak-dot.done { background: rgba(123,158,107,0.2); border-color: var(--accent2); color: var(--accent2); }
 
+  /* EXPORT / IMPORT */
+  .data-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .data-card h3 { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .data-card p { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+  .data-btn { width: 100%; padding: 12px; border-radius: 10px; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; cursor: pointer; border: none; letter-spacing: 0.5px; transition: opacity 0.15s; }
+  .data-btn:hover { opacity: 0.85; }
+  .data-btn.export { background: var(--accent); color: #0e0e0f; margin-bottom: 8px; }
+  .data-btn.import { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .data-btn.danger { background: transparent; color: var(--accent4); border: 1px solid var(--accent4); margin-top: 8px; }
+  #importFile { display: none; }
+  .import-success { font-size: 11px; color: var(--accent2); margin-top: 8px; text-align: center; display: none; }
+  .import-success.show { display: block; }
+
   /* MODAL */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; align-items: flex-end; justify-content: center; }
   .modal-overlay.open { display: flex; }
@@ -168,6 +181,7 @@
   <button class="tab active" onclick="showTab('daily',this)">Daily</button>
   <button class="tab"        onclick="showTab('todo',this)">To-Do</button>
   <button class="tab"        onclick="showTab('review',this)">Review</button>
+  <button class="tab"        onclick="showTab('data',this)">Data</button>
 </div>
 
 <div id="dailyView">
@@ -190,7 +204,22 @@
   <div id="reviewContent"></div>
 </div>
 
-<div class="modal-overlay" id="modalOverlay">
+<div id="dataView" style="display:none">
+  <div class="data-card">
+    <h3>💾 Export data</h3>
+    <p>Save all your habits, to-dos and notes as a file on your phone. Do this before clearing your browser data.</p>
+    <button class="data-btn export" onclick="exportData()">⬇ Export backup file</button>
+  </div>
+  <div class="data-card">
+    <h3>📂 Import data</h3>
+    <p>Restore from a previously exported backup file. This will replace your current data.</p>
+    <button class="data-btn import" onclick="document.getElementById('importFile').click()">⬆ Choose backup file</button>
+    <input type="file" id="importFile" accept=".json" onchange="importData(this)" />
+    <div class="import-success" id="importSuccess">✓ Data restored successfully!</div>
+  </div>
+</div>
+
+
   <div class="modal">
     <h3>New Recurring Habit</h3>
     <p class="modal-sub">Appears in your Daily tracker every day or week.</p>
@@ -281,10 +310,10 @@ function changeWeek(n) { weekOffset+=n; renderAll(); }
 function showTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  ['daily','todo','review'].forEach(t => {
+  ['daily','todo','review','data'].forEach(t => {
     document.getElementById(t+'View').style.display = t===tab?'block':'none';
   });
-  document.getElementById('weekNav').classList.toggle('hidden', tab==='todo');
+  document.getElementById('weekNav').classList.toggle('hidden', tab==='todo' || tab==='data');
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -464,8 +493,41 @@ function addHabit() {
   closeModal(); renderAll();
 }
 
+// ── Export / Import ───────────────────────────────────────────────────────────
+function exportData() {
+  const data = load();
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], {type: 'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const date = new Date().toISOString().slice(0,10);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `tracker-backup-${date}.json`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function importData(input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      save(data);
+      input.value = '';
+      const msg = document.getElementById('importSuccess');
+      msg.classList.add('show');
+      setTimeout(() => msg.classList.remove('show'), 3000);
+      renderAll();
+    } catch {
+      alert('Could not read that file. Make sure it\'s a valid tracker backup.');
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 renderAll();
 </script>
 </body>
+</html>
+
 </html>
