@@ -128,6 +128,15 @@
   .note-area textarea:focus { border-color: var(--accent); }
   .note-area textarea::placeholder { color: var(--muted); }
 
+  /* TIME LOG */
+  .time-log-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .time-log-label { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .time-log-input { width: 70px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; padding: 6px 10px; outline: none; text-align: center; transition: border-color 0.15s; }
+  .time-log-input:focus { border-color: var(--accent); }
+  .time-log-unit { font-size: 12px; color: var(--muted); }
+  .time-log-saved { font-size: 11px; color: var(--accent2); margin-left: auto; opacity: 0; transition: opacity 0.3s; }
+  .time-log-saved.show { opacity: 1; }
+
   .add-task-btn { width: 100%; padding: 13px; background: transparent; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted); font-family: 'DM Mono', monospace; font-size: 13px; cursor: pointer; letter-spacing: 0.5px; transition: all 0.15s; margin-top: 4px; }
   .add-task-btn:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -330,13 +339,23 @@
       <option value="learning">🤖 Learning</option>
       <option value="other">📌 Other</option>
     </select>
-    <div class="field-label">Description / target (optional)</div>
-    <input type="text" id="newTaskMeta" placeholder="e.g. 20 min · 3× per week" />
+    <div class="field-label">Description (optional)</div>
+    <input type="text" id="newTaskMeta" placeholder="e.g. Morning session, Before work…" />
     <div class="field-label">Frequency</div>
     <select id="newTaskFreq">
       <option value="daily">Daily — appears every day</option>
       <option value="weekly">Weekly — tick once per week</option>
     </select>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <div style="flex:1">
+        <div class="field-label">Target sessions/week</div>
+        <input type="number" id="newTaskSessions" min="1" max="7" placeholder="e.g. 5" />
+      </div>
+      <div style="flex:1">
+        <div class="field-label">Target mins/session</div>
+        <input type="number" id="newTaskMins" min="1" max="999" placeholder="e.g. 30" />
+      </div>
+    </div>
     <div class="modal-btns">
       <button class="btn-cancel"  onclick="closeModal()">Cancel</button>
       <button class="btn-primary" id="modalSaveBtn" onclick="saveHabit()">Add Habit</button>
@@ -381,11 +400,11 @@ function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 
 // ── Default habits ────────────────────────────────────────────────────────────
 const DEFAULTS = [
-  { id:'gym',     name:'Gym Session',          cat:'fitness',  meta:'30 min · target 5×/week', freq:'daily'  },
-  { id:'french',  name:'French Practice',      cat:'language', meta:'15 min · daily',           freq:'daily'  },
-  { id:'spanish', name:'Spanish Practice',     cat:'language', meta:'30–60 min · weekly goal',  freq:'weekly' },
-  { id:'trading', name:'Trading Session',      cat:'trading',  meta:'1–2 hrs · target 3×/week', freq:'daily'  },
-  { id:'ai',      name:'AI & Claude Learning', cat:'learning', meta:'1 hr · weekly goal',       freq:'weekly' },
+  { id:'gym',     name:'Gym Session',          cat:'fitness',  meta:'Morning session',      freq:'daily',  targetSessions:5, targetMins:30  },
+  { id:'french',  name:'French Practice',      cat:'language', meta:'Daily practice',        freq:'daily',  targetSessions:5, targetMins:15  },
+  { id:'spanish', name:'Spanish Practice',     cat:'language', meta:'Weekly goal',           freq:'weekly', targetSessions:1, targetMins:45  },
+  { id:'trading', name:'Trading Session',      cat:'trading',  meta:'Analysis & execution',  freq:'daily',  targetSessions:3, targetMins:90  },
+  { id:'ai',      name:'AI & Claude Learning', cat:'learning', meta:'Weekly goal',           freq:'weekly', targetSessions:1, targetMins:60  },
 ];
 
 function getTasks() {
@@ -517,6 +536,15 @@ function mkCard(task, sk, dayData) {
     <div class="note-area">
       <textarea rows="2" placeholder="Quick note (optional)…"
         onchange="saveNote('${task.id}','${sk}',this.value)">${esc(entry.note||'')}</textarea>
+    </div>
+    <div class="time-log-row">
+      <span class="time-log-label">⏱ Time logged:</span>
+      <input class="time-log-input" type="number" min="0" max="999" placeholder="0"
+        value="${entry.mins||''}"
+        onchange="saveTime('${task.id}','${sk}',this.value,this)"
+        onclick="this.select()" />
+      <span class="time-log-unit">min</span>
+      <span class="time-log-saved" id="saved_${task.id}">✓ saved</span>
     </div>`;
   return card;
 }
@@ -535,6 +563,15 @@ function toggleTask(id, sk) {
 function saveNote(id, sk, note) {
   const data=load(); if(!data[sk])data[sk]={}; if(!data[sk][id])data[sk][id]={};
   data[sk][id].note=note; save(data);
+}
+
+function saveTime(id, sk, val, el) {
+  const mins = parseInt(val)||0;
+  const data=load(); if(!data[sk])data[sk]={}; if(!data[sk][id])data[sk][id]={};
+  data[sk][id].mins=mins; save(data);
+  // Flash "saved" confirmation
+  const saved=document.getElementById('saved_'+id);
+  if(saved){saved.classList.add('show');setTimeout(()=>saved.classList.remove('show'),1500);}
 }
 
 function togglePause(id) {
@@ -594,6 +631,8 @@ function openModal(mode, habitId) {
       document.getElementById('newTaskCat').value=h.cat;
       document.getElementById('newTaskMeta').value=h.meta;
       document.getElementById('newTaskFreq').value=h.freq;
+      document.getElementById('newTaskSessions').value=h.targetSessions||'';
+      document.getElementById('newTaskMins').value=h.targetMins||'';
     }
     document.getElementById('modalTitle').textContent='Edit Habit';
     document.getElementById('modalSub').textContent='Update the details for this habit.';
@@ -603,6 +642,8 @@ function openModal(mode, habitId) {
     document.getElementById('newTaskCat').value='fitness';
     document.getElementById('newTaskMeta').value='';
     document.getElementById('newTaskFreq').value='daily';
+    document.getElementById('newTaskSessions').value='';
+    document.getElementById('newTaskMins').value='';
     document.getElementById('modalTitle').textContent='New Recurring Habit';
     document.getElementById('modalSub').textContent='Appears in your Daily tracker every day or week.';
     document.getElementById('modalSaveBtn').textContent='Add Habit';
@@ -617,24 +658,24 @@ function saveHabit() {
   const cat=document.getElementById('newTaskCat').value;
   const meta=document.getElementById('newTaskMeta').value.trim()||'Custom habit';
   const freq=document.getElementById('newTaskFreq').value;
+  const targetSessions=parseInt(document.getElementById('newTaskSessions').value)||null;
+  const targetMins=parseInt(document.getElementById('newTaskMins').value)||null;
   const data=load();
 
   if(editingId) {
-    // Check if it's a default
     const isDefault=DEFAULTS.some(d=>d.id===editingId);
     if(isDefault) {
-      // Store override for default habits
       if(!data.defaultOverrides) data.defaultOverrides={};
-      data.defaultOverrides[editingId]={name,cat,meta,freq};
+      data.defaultOverrides[editingId]={name,cat,meta,freq,targetSessions,targetMins};
     } else {
       if(data.customHabits) {
         const h=data.customHabits.find(h=>h.id===editingId);
-        if(h){h.name=name;h.cat=cat;h.meta=meta;h.freq=freq;}
+        if(h){h.name=name;h.cat=cat;h.meta=meta;h.freq=freq;h.targetSessions=targetSessions;h.targetMins=targetMins;}
       }
     }
   } else {
     if(!data.customHabits) data.customHabits=[];
-    data.customHabits.push({id:'h_'+Date.now(),name,cat,meta,freq});
+    data.customHabits.push({id:'h_'+Date.now(),name,cat,meta,freq,targetSessions,targetMins});
   }
   save(data); closeModal(); renderAll();
 }
@@ -677,26 +718,88 @@ function mkTodo(todo){const div=document.createElement('div');div.className='tod
 
 // ── Review ────────────────────────────────────────────────────────────────────
 function renderReview(dates) {
-  const data=load();const tasks=getTasks();
-  const weekKey='week_'+dk(dates[0]);const wd=data[weekKey]||{};
+  const data=load(); const tasks=getTasks();
+  const weekKey='week_'+dk(dates[0]); const wd=data[weekKey]||{};
+
   const stats={};
   tasks.forEach(t=>{
-    if(t.freq==='daily'){let done=0;dates.forEach(d=>{if(data[dk(d)]?.[t.id]?.done)done++;});stats[t.id]={done,target:t.id==='gym'?5:t.id==='trading'?3:7};}
-    else{stats[t.id]={done:wd[t.id]?.done?1:0,target:1};}
+    const tSess = t.targetSessions || (t.freq==='daily'?(t.id==='gym'?5:t.id==='trading'?3:7):1);
+    const tMins = t.targetMins || null;
+    if(t.freq==='daily'){
+      let done=0,totalMins=0;
+      dates.forEach(d=>{const e=data[dk(d)]?.[t.id]||{};if(e.done)done++;totalMins+=(e.mins||0);});
+      stats[t.id]={done,targetSessions:tSess,totalMins,targetMins:tMins?(tSess*tMins):null};
+    } else {
+      const e=wd[t.id]||{};
+      stats[t.id]={done:e.done?1:0,targetSessions:tSess,totalMins:e.mins||0,targetMins:tMins||null};
+    }
   });
-  let td=0,tp=0;Object.values(stats).forEach(s=>{td+=s.done;tp+=s.target;});
+
+  // Overall totals
+  let totalDone=0,totalTargetSess=0,totalLogged=0,totalTargetMins=0;
+  Object.values(stats).forEach(s=>{
+    totalDone+=s.done; totalTargetSess+=s.targetSessions;
+    totalLogged+=s.totalMins;
+    if(s.targetMins) totalTargetMins+=s.targetMins;
+  });
+
+  function fmtMins(m){if(!m&&m!==0)return '—';const h=Math.floor(m/60),mn=m%60;return h>0?`${h}h ${mn}m`:`${mn}m`;}
+  function pctCol(done,target){const p=done/Math.max(target,1);return p>=1?'var(--accent2)':p>=0.6?'var(--accent)':'var(--accent4)';}
+
   const notes=[];
   tasks.forEach(t=>{
     if(t.freq==='daily'){dates.forEach((d,i)=>{const n=data[dk(d)]?.[t.id]?.note;if(n&&n.trim())notes.push({day:DAYS[i],task:t.name,note:n});});}
     else{const n=wd[t.id]?.note;if(n&&n.trim())notes.push({day:'Weekly',task:t.name,note:n});}
   });
   const gymDots=dates.map((d,i)=>`<div class="streak-dot${data[dk(d)]?.gym?.done?' done':''}">${DAYS[i].slice(0,2)}</div>`).join('');
+
   document.getElementById('reviewContent').innerHTML=`
-    <div class="summary-grid">
-      <div class="summary-stat"><div class="num">${td}</div><div class="lbl">Done</div></div>
-      <div class="summary-stat"><div class="num">${Math.round(td/Math.max(tp,1)*100)}%</div><div class="lbl">Hit rate</div></div>
+    <!-- Overall summary -->
+    <div class="review-card" style="border-color:var(--accent);background:rgba(196,154,42,0.06)">
+      <h3>This week — overall</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+        <div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-family:'Playfair Display',serif;font-size:28px;color:${pctCol(totalDone,totalTargetSess)};line-height:1">${totalDone}/${totalTargetSess}</div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:4px">Sessions</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-family:'Playfair Display',serif;font-size:22px;color:${totalTargetMins?pctCol(totalLogged,totalTargetMins):'var(--accent)'};line-height:1;margin-top:4px">${fmtMins(totalLogged)}${totalTargetMins?`<span style="font-size:13px;color:var(--muted)"> / ${fmtMins(totalTargetMins)}</span>`:''}</div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:6px">Time</div>
+        </div>
+      </div>
+      <div class="progress-bar-wrap" style="height:8px;margin-top:4px">
+        <div class="progress-bar-fill" style="width:${Math.min(Math.round(totalDone/Math.max(totalTargetSess,1)*100),100)}%;background:${pctCol(totalDone,totalTargetSess)}"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;text-align:right">${Math.round(totalDone/Math.max(totalTargetSess,1)*100)}% of session target</div>
     </div>
-    <div class="review-card"><h3>Progress by habit</h3>${tasks.map(t=>{const s=stats[t.id];const pct=Math.round(s.done/Math.max(s.target,1)*100);const col=pct>=100?'var(--accent2)':pct>=60?'var(--accent)':'var(--accent4)';return `<div class="progress-row"><div class="progress-label">${EMOJI[t.cat]||'📌'} ${esc(t.name.split(' ').slice(0,2).join(' '))}</div><div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${Math.min(pct,100)}%;background:${col}"></div></div><div class="progress-pct">${s.done}/${s.target}</div></div>`;}).join('')}</div>
+
+    <!-- Per-habit breakdown -->
+    <div class="review-card">
+      <h3>Per habit — target vs actual</h3>
+      ${tasks.map(t=>{
+        const s=stats[t.id];
+        const sessPct=Math.round(s.done/Math.max(s.targetSessions,1)*100);
+        const sessCol=pctCol(s.done,s.targetSessions);
+        const hasTimeTarget=!!s.targetMins;
+        const timePct=hasTimeTarget?Math.round(s.totalMins/s.targetMins*100):null;
+        const timeCol=hasTimeTarget?pctCol(s.totalMins,s.targetMins):'var(--muted)';
+        return `
+        <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px">${EMOJI[t.cat]||'📌'} ${esc(t.name)}</div>
+          <div class="progress-row" style="margin-bottom:6px">
+            <div class="progress-label" style="font-size:11px;color:var(--muted);width:90px">Sessions</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${Math.min(sessPct,100)}%;background:${sessCol}"></div></div>
+            <div style="font-size:12px;color:${sessCol};width:50px;text-align:right;flex-shrink:0">${s.done}/${s.targetSessions}</div>
+          </div>
+          <div class="progress-row" style="margin-bottom:0">
+            <div class="progress-label" style="font-size:11px;color:var(--muted);width:90px">Time</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${hasTimeTarget?Math.min(timePct,100):0}%;background:${timeCol}"></div></div>
+            <div style="font-size:12px;color:${timeCol};width:50px;text-align:right;flex-shrink:0">${fmtMins(s.totalMins)}${hasTimeTarget?`<span style="color:var(--muted)">/${fmtMins(s.targetMins)}</span>`:''}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
     <div class="review-card"><h3>Gym streak this week</h3><div class="streak-row">${gymDots}</div></div>
     <div class="review-card"><h3>Notes from this week</h3>${notes.length?notes.map(n=>`<div class="note-entry"><div class="note-day-label">${n.day} · ${esc(n.task)}</div>${esc(n.note)}</div>`).join(''):'<p class="no-notes">No notes yet.</p>'}</div>`;
 }
