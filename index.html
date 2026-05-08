@@ -491,8 +491,15 @@ function renderTaskList(dates) {
   const list=document.getElementById('taskList'); list.innerHTML='';
   const daily=tasks.filter(t=>t.freq==='daily');
   const weekly=tasks.filter(t=>t.freq==='weekly');
-  if(daily.length)  { addSLabel(list,"Today's habits");                           daily.forEach(t=>list.appendChild(mkCard(t,key,dayData))); }
-  if(weekly.length) { addSLabel(list,'Weekly goals — tick once this week','14px'); weekly.forEach(t=>list.appendChild(mkCard(t,weekKey,weekData))); }
+
+  // Daily: tick + time + note all stored per day
+  if(daily.length)  { addSLabel(list,"Today's habits"); daily.forEach(t=>list.appendChild(mkCard(t, key, dayData, key, dayData))); }
+
+  // Weekly: tick stored per week, time + note stored per day
+  if(weekly.length) {
+    addSLabel(list,'Weekly goals — tick once this week','14px');
+    weekly.forEach(t=>list.appendChild(mkCard(t, weekKey, weekData, key, dayData)));
+  }
 
   // Add habit button — only in daily view
   const addBtn = document.createElement('button');
@@ -506,18 +513,19 @@ function addSLabel(parent,text,mt='') {
   const el=document.createElement('div'); el.className='section-label'; el.textContent=text; if(mt)el.style.marginTop=mt; parent.appendChild(el);
 }
 
-function mkCard(task, sk, dayData) {
-  const entry=dayData[task.id]||{}; const done=!!entry.done;
+function mkCard(task, tickSk, tickData, daySk, dayData) {
+  const tickEntry = tickData[task.id]||{};
+  const dayEntry  = dayData[task.id]||{};
+  const done = !!tickEntry.done;
   const data=load(); const paused=(data.pausedHabits||[]).includes(task.id);
   const card=document.createElement('div');
   card.className='task-card'+(done?' done':'')+(paused?' paused':'');
-
   const isDefault=DEFAULTS.some(d=>d.id===task.id);
 
   card.innerHTML=`
     <div class="task-header">
-      <div class="checkbox" onclick="toggleTask('${task.id}','${sk}')">${done?'✓':''}</div>
-      <div class="task-info" onclick="toggleTask('${task.id}','${sk}')">
+      <div class="checkbox" onclick="toggleTask('${task.id}','${tickSk}')">${done?'✓':''}</div>
+      <div class="task-info" onclick="toggleTask('${task.id}','${tickSk}')">
         <div class="task-name">${EMOJI[task.cat]||'📌'} ${esc(task.name)}${paused?' <span style="font-size:9px;opacity:.6">(paused)</span>':''}</div>
         <div class="task-meta">${esc(task.meta)}</div>
         <span class="task-tag ${CTAG[task.cat]||'tag-other'}">${task.cat}</span>
@@ -535,13 +543,13 @@ function mkCard(task, sk, dayData) {
     </div>
     <div class="note-area">
       <textarea rows="2" placeholder="Quick note (optional)…"
-        onchange="saveNote('${task.id}','${sk}',this.value)">${esc(entry.note||'')}</textarea>
+        onchange="saveNote('${task.id}','${daySk}',this.value)">${esc(dayEntry.note||'')}</textarea>
     </div>
     <div class="time-log-row">
       <span class="time-log-label">⏱ Time logged:</span>
       <input class="time-log-input" type="number" min="0" max="999" placeholder="0"
-        value="${entry.mins||''}"
-        onchange="saveTime('${task.id}','${sk}',this.value,this)"
+        value="${dayEntry.mins||''}"
+        onchange="saveTime('${task.id}','${daySk}',this.value,this)"
         onclick="this.select()" />
       <span class="time-log-unit">min</span>
       <span class="time-log-saved" id="saved_${task.id}">✓ saved</span>
@@ -730,8 +738,11 @@ function renderReview(dates) {
       dates.forEach(d=>{const e=data[dk(d)]?.[t.id]||{};if(e.done)done++;totalMins+=(e.mins||0);});
       stats[t.id]={done,targetSessions:tSess,totalMins,targetMins:tMins?(tSess*tMins):null};
     } else {
+      // Tick from weekKey, but time from each day
       const e=wd[t.id]||{};
-      stats[t.id]={done:e.done?1:0,targetSessions:tSess,totalMins:e.mins||0,targetMins:tMins||null};
+      let totalMins=0;
+      dates.forEach(d=>{totalMins+=(data[dk(d)]?.[t.id]?.mins||0);});
+      stats[t.id]={done:e.done?1:0,targetSessions:tSess,totalMins,targetMins:tMins||null};
     }
   });
 
